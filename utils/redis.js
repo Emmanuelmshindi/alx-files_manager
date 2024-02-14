@@ -1,68 +1,57 @@
-const redis = require('redis');
+import redis from 'redis';
+import { promisify } from 'util';
 
 class RedisClient {
-  constructor(options) {
-    this.client = redis.createClient(options);
+  constructor() {
+    this.client = redis.createClient();
+    this.getAsync = promisify(this.client.get).bind(this.client);
 
-    this.client.on('error', (err) => {
+    this.client.on('error', (error) => {
       console.error('Redis error:', err);
    });
   }
 
+  /**
+   * Check if client is connected
+   * Return true if connection is alive and false if not
+   */
   isAlive() {
     return this.client.connected;
   }
 
+  /**
+   * Get value corresponding to key in redis
+   * @key {string} key to search for in redis
+   * @return {string} value of key
+   */
+
   async get(key) {
-    return new Promise((resolve, reject) => {
-      this.client.get(key, (err, reply) => {
-        if (err) {
-	  reject(err);
-	} else {
-	  resolve(reply);
-	}
-      });
-    });
+    const value = await this.getAsync(key);
+    return value;
   }
+
+  /**
+   * Creates a new key in redis with a specific TTL
+   * @key {string} key to be saved in redis
+   * @value {string} value to be asigned to key
+   * @duration {number} TTL of key
+   * @return {undefined}  No return
+   */
 
   async set(key, value, duration) {
-    await new Promise((resolve, reject) => {
-      this.client.set(key, value, (err, reply) => {
-        if (err) {
-	  reject(err);
-	} else {
-	  resolve(reply);
-	}
-      });
-    });
-
-    await new Promise((resolve, reject) => {
-      this.client.expire(key, duration, (err, reply) => {
-        if (err) {
-	  reject(err);
-	} else {
-	  resolve(reply);
-	}
-      });
-    });
+    this.client.setex(key, duration, value);
   }
 
+  /**
+   * Deletes key in redis service
+   * @key {string} key to be deleted
+   * @return {undefined}  No return
+   */
   async del(key) {
-    await new Promise((resolve, reject) => {
-      this.client.delete(key, (err, reply) => {
-        if (err) {
-	  reject(err);
-	} else {
-	  resolve(reply);
-	}
-      });
-    });
+    this.client.del(key);
   }
 }
 
-const redisClient = new RedisClient({
-  host: 'localhost',
-  port: 6379,
-});
+const redisClient = new RedisClient();
 
-module.exports = redisClient;
+export default redisClient;
